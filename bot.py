@@ -1,67 +1,35 @@
 import discord
 import j_database
-from discord.ext.commands import CommandNotFound
 from discord.ext import commands
-token = "" #Enter your bot token here
-client = commands.Bot(command_prefix= "j!")
-auth = []
-auth2 = []
+from discord.ext.commands import CommandNotFound
+token = "" #Enter bot token here
+client = commands.Bot(command_prefix= "j.")
 database = j_database.Database()
-database.retrieve()
-class toDoApp():
-    def __init__(self, todo):
-        self.todo = todo
+def get_info(user_id):
+    info, inDatabase = database.query(user_id)
+    return info, inDatabase
 @client.event
 async def on_command_error(ctx, error):
     if isinstance(error, CommandNotFound):
         cont = ":exclamation: Commands: \n" \
-               ":small_orange_diamond: j!do [task]\n" \
-               ":small_orange_diamond: j!todo\n" \
-               ":small_orange_diamond: j!done [number]\n"
+               ":small_orange_diamond: j.do [task]\n" \
+               ":small_orange_diamond: j.todo\n" \
+               ":small_orange_diamond: j.done [number]\n"
         embed = discord.Embed(
             title=":cowboy:Invalid Command:x:",
             description=cont,
             color=discord.Colour.blue()
         )
         await ctx.send(embed=embed)
-def retrieve():
-    auth2.clear()
-    auth.clear()
-    with open("todo.txt", 'r') as f:
-        for lines in f:
-            line = lines.split("-")
-            content = []
-            content.append(line[0])
-            author = line[1][0:-1]
-            if author not in auth:
-                auth.append(author)
-                auth2.append(toDoApp(content))
-            else:
-                for i in range(len(auth)):
-                    if author == auth[i]:
-                        auth2[i].todo.append(line[0])
-def save(pos):
-    with open("todo.txt", 'a') as f:
-        recent = len(auth2[pos].todo) - 1
-        print(recent)
-        f.write(auth2[pos].todo[recent] + "-" + auth[pos] + "\n")
-def rewrite(pos):
-    length = len(auth2)
-    with open("todo.txt", 'w') as f:
-        for i in range(length):
-            for x in auth2[i].todo:
-                f.write(x + "-" + auth[i] + "\n")
-
-retrieve()
 @client.event
 async def on_ready():
-    await client.change_presence(status=discord.Status.online, activity=discord.Game('j!commands'))
+    await client.change_presence(status=discord.Status.online, activity=discord.Game('j.commands'))
 @client.command()
 async def commands(ctx):
     cont = ":exclamation: Commands: \n" \
-           ":small_orange_diamond: j!do [task]\n" \
-           ":small_orange_diamond: j!todo\n" \
-           ":small_orange_diamond: j!done [number]\n"
+           ":small_orange_diamond: j.gawa [task]\n" \
+           ":small_orange_diamond: j.gawain\n" \
+           ":small_orange_diamond: j.tapos [number]\n"
     embed = discord.Embed(
         title=":cowboy: Mga commands",
         description=cont,
@@ -70,111 +38,178 @@ async def commands(ctx):
     await ctx.send(embed=embed)
     print("Wrong Command")
 @client.command()
-async def todo(message):
-    retrieve()
-    author = message.author
-    if str(author) not in auth:
-        cont = ":exclamation: Commands: \n" \
-               ":small_orange_diamond: j!do [task]\n" \
-               ":small_orange_diamond: j!todo\n" \
-               ":small_orange_diamond: j!done [number]\n"
+async def gawa(message, *todo):
+    author = message.author.id
+    try:
+        info, inDatabase = get_info(author)
+    except:
+        info, inDatabase = "None", False
+    print(info, inDatabase)
+    count = 0
+    if todo:
+        print("hello")
+        if inDatabase == False:
+            parse = ""
+            for words in todo:
+                if count < len(todo) - 1:
+                    parse += words + " "
+                else:
+                    parse += words
+                count += 1
+            print("added")
+            database.insert(str(author), parse)
+            embed_message = parse
+        else:
+            parse = info + "323-"
+            embeds = ""
+            for words in todo:
+                if count < len(todo) - 1:
+                    parse += words + " "
+                    embeds += words + " "
+                else:
+                    parse += words
+                    embeds += words
+                count += 1
+            database.update(str(author), parse)
+            embed_message = embeds
         embed = discord.Embed(
-            title=":cowboy: Wala kang takdang gawain",
+            title=":cowboy: Ang Idinagdag mo sa Listahan :bookmark: : ",
+            description=embed_message,
+            color=discord.Colour.blue()
+        )
+        embed_author = message.author
+        embed.set_author(name=embed_author)
+        await message.channel.send(embed=embed)
+    else:
+        cont = ":exclamation: Commands: \n" \
+               ":small_orange_diamond: j.gawa [task]\n" \
+               ":small_orange_diamond: j.gawain\n" \
+               ":small_orange_diamond: j.tapos [number]\n"
+        embed = discord.Embed(
+            title=":cowboy: Maglagay ng Gawain",
             description=cont,
             color=discord.Colour.blue()
         )
+        embed_author = str(message.author)
+        embed.set_author(name=embed_author)
         await message.channel.send(embed=embed)
-    if str(author) in auth:
-        for i in range(len(auth)):
-            if str(author) == auth[i]:
+@client.command()
+async def gawain(message):
+    author = message.author.id
+    try:
+        info, inDatabase = get_info(author)
+        if inDatabase:
+            todo = database.get_list(str(author))
+            if todo:
+                todoList = todo.split("323-")
                 parse = ""
-                for x in range(len(auth2[i].todo)):
-                    parse += str(x + 1) + ".) " + auth2[i].todo[x] + "\n"
+                for i in range(len(todoList)):
+                    parse += str(i+1) +".) " + todoList[i] + "\n"
+
                 embed = discord.Embed(
                     title=":cowboy: Mga takdang gawain mo :bookmark: : ",
                     description=parse,
                     color=discord.Colour.blue()
                 )
-                embed_author = auth[i][0:-5]
+                embed_author = str(message.author)
                 embed.set_author(name=embed_author)
                 await message.channel.send(embed=embed)
-                print("Print Todo")
-
-@client.command()
-async def do(message, *todo):
-    author = message.author
-    inList = False
-    parse = ""
-    for x in todo:
-        parse += x + " "
-    if parse != "":
-        todoList = [parse]
-        for x in auth:
-            if str(author) == x:
-                inList = True
-        for x in range(len(auth)):
-            if str(author) == auth[x]:
-                position = x
-        if not inList:
-            auth.append(str(author))
-            auth2.append(toDoApp(todoList))
-        for x in range(len(auth)):
-            if str(author) == auth[x]:
-                position = x
-        if inList:
-            todoList2 = auth2[position].todo + todoList
-            auth2[position].todo = todoList2
-        save(position)
-        embed = discord.Embed(
-            title=":cowboy: Added: ",
-            description="\"" + parse + "\"" +"\n\n:small_orange_diamond: **j!todo** Para tignan ang iyong listahan",
-            color=discord.Colour.blue()
-        )
-        await message.channel.send(embed=embed)
-        print("todo Added")
-    else:
-            cont = ":exclamation: Commands: \n" \
-                   ":small_orange_diamond: j!do [task]\n" \
-                   ":small_orange_diamond: j!todo\n" \
-                   ":small_orange_diamond: j!done [number]\n"
-            embed = discord.Embed(
-                title=":cowboy: Wala kang takdang gawain",
-                description=cont,
-                color=discord.Colour.blue()
-            )
-            await message.channel.send(embed=embed)
-@client.command()
-async def done(message, pos):
-    author = message.author
-    if str(author) not in auth:
+            else:
+                database.delete(str(author))
+                cont = ":exclamation: Commands: \n" \
+                       ":small_orange_diamond: j.gawa [task]\n" \
+                       ":small_orange_diamond: j.gawain\n" \
+                       ":small_orange_diamond: j.tapos [number]\n"
+                embed = discord.Embed(
+                    title=":cowboy: Wala kang takdang gawain",
+                    description=cont,
+                    color=discord.Colour.blue()
+                )
+                embed_author = str(message.author)
+                embed.set_author(name=embed_author)
+                await message.channel.send(embed=embed)
+    except:
         cont = ":exclamation: Commands: \n" \
-               ":small_orange_diamond: j!do [task]\n" \
-               ":small_orange_diamond: j!todo\n" \
-               ":small_orange_diamond: j!done [number]\n"
+               ":small_orange_diamond: j.gawa [task]\n" \
+               ":small_orange_diamond: j.gawain\n" \
+               ":small_orange_diamond: j.tapos [number]\n"
         embed = discord.Embed(
             title=":cowboy: Wala kang takdang gawain",
             description=cont,
             color=discord.Colour.blue()
         )
+        embed_author = str(message.author)
+        embed.set_author(name=embed_author)
         await message.channel.send(embed=embed)
-    position = int(pos)
-    if str(author) in auth:
-        for i in range(len(auth)):
-            if str(author) == auth[i]:
-                list = auth2[i].todo
-                try:
-                    done = list[position - 1]
-                    list.pop(position - 1)
-                    auth2[i].todo = list
-                    rewrite(position)
-                except:
-                    print("wrong")
-    embed = discord.Embed(
-        title=":cowboy: Natapos ka nang mag: ",
-        description="\"" + done + "\"" + "\n\n:small_orange_diamond: **j!todo** Para tignan ang iyong listahan",
-        color=discord.Colour.blue()
-    )
-    await message.channel.send(embed=embed)
-    print("Done Task", str(author))
-    retrieve()
+@client.command()
+async def tapos(message, position):
+    author = message.author.id
+    try:
+        info, inDatabase = get_info(str(author))
+    except:
+        info, inDatabase = "None", False
+        cont = ":exclamation: Commands: \n" \
+               ":small_orange_diamond: j.gawa [task]\n" \
+               ":small_orange_diamond: j.gawain\n" \
+               ":small_orange_diamond: j.tapos [number]\n"
+        embed = discord.Embed(
+            title=":cowboy: Wala kang takdang gawain",
+            description=cont,
+            color=discord.Colour.blue()
+        )
+        embed_author = str(message.author)
+        embed.set_author(name=embed_author)
+        await message.channel.send(embed=embed)
+    if inDatabase:
+        try:
+            todo = database.get_list(str(author))
+            todoList = todo.split("323-")
+            if int(position) > len(todoList):
+                cont = ":exclamation: Commands: \n" \
+                       ":small_orange_diamond: j.gawa [task]\n" \
+                       ":small_orange_diamond: j.gawain\n" \
+                       ":small_orange_diamond: j.tapos [number]\n"
+                embed = discord.Embed(
+                    title=":cowboy: Lumagpas ka sa Listahan",
+                    description=cont,
+                    color=discord.Colour.blue()
+                )
+                embed_author = str(message.author)
+                embed.set_author(name=embed_author)
+                await message.channel.send(embed=embed)
+            else:
+                popped = todoList.pop(int(position) - 1)
+                parse = ""
+                count = 0
+                for i in range(len(todoList)):
+                    if count < len(todoList) - 1:
+                        parse += todoList[i] + "323-"
+                    else:
+                        parse += todoList[i]
+                    count += 1
+                database.update(str(author), parse)
+                embed = discord.Embed(
+                    title=":cowboy: Tapos ka na mag:",
+                    description="\"" + popped + "\"",
+                    color=discord.Colour.blue()
+                )
+                embed_author = str(message.author)
+                embed.set_author(name=embed_author)
+                await message.channel.send(embed=embed)
+                if parse == "":
+                    database.delete(str(author))
+        except:
+            cont = "\"Gumamit lamang ng numero!\"\n\n"\
+                   ":exclamation: Commands: \n" \
+                   ":small_orange_diamond: j.gawa [task]\n" \
+                   ":small_orange_diamond: j.gawain\n" \
+                   ":small_orange_diamond: j.tapos [number]\n"
+            embed = discord.Embed(
+                title=":cowboy: Maling Argumento",
+                description=cont,
+                color=discord.Colour.blue()
+            )
+            embed_author = str(message.author)
+            embed.set_author(name=embed_author)
+            await message.channel.send(embed=embed)
 client.run(token)
